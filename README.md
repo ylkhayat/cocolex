@@ -6,7 +6,7 @@ This is the **official implementation** of **CoCoLex**, a decoding strategy desi
 
 For more details, please refer to our ACL 2025 paper:  
 **[CoCoLex: Confidence-guided Copy-based Decoding for Grounded Legal Text Generation](https://aclanthology.org/2025.acl-long.931/)**  
-Published in *Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL 2025)*.
+Published in _Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL 2025)_.
 
 ## 📚 Citation
 
@@ -38,3 +38,132 @@ If you use this work, please cite:
     abstract = "Due to their ability to process long and complex contexts, LLMs can offer key benefits to the Legal domain, but their adoption has been hindered by their tendency to generate unfaithful, ungrounded, or hallucinatory outputs. While Retrieval-Augmented Generation offers a promising solution by grounding generations in external knowledge, it offers no guarantee that the provided context will be effectively integrated. To address this, context-aware decoding strategies have been proposed to amplify the influence of relevant context, but they usually do not explicitly enforce faithfulness to the context. In this work, we introduce Confidence-guided Copy-based Decoding for Legal Text Generation (CoCoLex){---}a decoding strategy that dynamically interpolates the model produced vocabulary distribution with a distribution derived based on copying from the context. CoCoLex encourages direct copying based on models' confidence, ensuring greater fidelity to the source. Experimental results on five legal benchmarks demonstrate that CoCoLex outperforms existing context-aware decoding methods, particularly in long-form generation tasks."
 }
 ```
+
+## 🚀 Usage Example
+
+```python
+from cocolex import CoCoLex
+
+# Initialize CoCoLex model
+model = CoCoLex(
+    model_name="mistralai/Mistral-7B-Instruct-v0.3",
+    device=0
+)
+
+# Define prompts
+prompts = ["Given the contract details above, summarize the obligations of each party."]
+# Contexts are what will be passed to the model as context - List of strings
+contexts = ["This agreement is entered into by the Parties on January 1, 2025..."]
+
+# Datastore construction parameter (will change for CoCoLex+)
+references = copy.deepcopy(contexts)
+
+# Generate tokens
+outputs = model.generate(
+    prompts=prompts,
+    contexts=contexts,
+    references=references,
+    max_length=100,
+    decoding_strategy="top_p",
+    top_p_value=0.9,
+    k=5,
+    datastore_from_layer_index=-1,
+    use_faiss=False
+)
+
+# Decode and print the generated text
+decoded_output = model.tokenizer.batch_decode(outputs, skip_special_tokens=True)
+print(decoded_output[0])
+```
+
+## ⚙️ Supported Variants
+
+CoCoLex supports three decoding variants:
+
+- **colex**: Copy-only decoding (uses only copy-based probabilities).
+- **cocolex**: Confidence-guided copy-based decoding (combines copy-based and model probabilities; default).
+- **cocolex-plus**: Plus mode (uses advanced datastore with reference chunks).
+
+### CoLex (copy-only)
+
+```python
+outputs = model.generate(
+    prompts=prompts,
+    contexts=contexts,
+    references=references,
+    max_length=100,
+    lamba=0.5, # CoLex uses a fixed lambda value for copy-based distribution
+)
+```
+
+### CoCoLex (confidence-guided; default)
+
+```python
+outputs = model.generate(
+    prompts=prompts,
+    contexts=contexts,
+    references=copy.deepcopy(references),
+    max_length=100,
+)
+```
+
+### CoCoLex-Plus (uses chunked datastore references)
+
+```python
+# References are the datastore entries, which can be longer documents to support the full input - List of List of strings
+full_contexts = [
+  [
+    "This agreement is entered into by the Parties on January 1, 2025. The obligations of each party are as follows: ...",
+    "The contract stipulates that Party A must deliver goods by March 1, 2025, while Party B must make payment within 30 days."
+  ]
+]
+outputs = model.generate(
+    prompts=prompts,
+    contexts=contexts,
+    references=full_contexts,
+    max_length=100,
+    use_plus=True,  # Enable CoCoLex+ mode
+)
+```
+
+### Ada + CoCoLex
+
+```python
+outputs = model.generate(
+    prompts=prompts,
+    contexts=contexts,
+    references=copy.deepcopy(references),
+    max_length=100,
+    use_jsd=True
+)
+```
+
+## Manual
+
+### Generate Function Parameters
+
+| Parameter                    | Type                                          | Default      | Description                                                                                                           |
+| ---------------------------- | --------------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `prompts`                    | `List[str]`                                   | Required     | Input prompts to generate text from.                                                                                  |
+| `contexts`                   | `List[str]`                                   | Required     | Context strings that are prepended to prompts.                                                                        |
+| `references`                 | `Optional[Union[List[str], List[List[str]]]]` | `None`       | Reference texts for datastore construction and copy-based probability calculation.                                    |
+| `lamba`                      | `float`                                       | `None`       | Fixed interpolation weight between model and copy distributions. If `None`, uses confidence-guided dynamic weighting. |
+| `max_length`                 | `int`                                         | `256`        | Maximum number of tokens to generate.                                                                                 |
+| `entropy_strategy`           | `str`                                         | `'exp_norm'` | Strategy for computing entropy-based confidence ('exp_norm', 'sigmoid').                                              |
+| `entropy_sigmoid_threshold`  | `float`                                       | `0.5`        | Threshold for sigmoid-based entropy confidence calculation.                                                           |
+| `lambda_smoothing_factor`    | `float`                                       | `0.3`        | Smoothing factor for temporal lambda updates.                                                                         |
+| `decoding_strategy`          | `str`                                         | `'top_p'`    | Token sampling strategy ('top_p' or 'top_k').                                                                         |
+| `top_p_value`                | `float`                                       | `0.9`        | Nucleus sampling probability threshold for top-p decoding.                                                            |
+| `top_k_value`                | `int`                                         | `20`         | Number of top tokens to consider for top-k sampling.                                                                  |
+| `k`                          | `int`                                         | `10`         | Number of nearest neighbors to retrieve from datastore.                                                               |
+| `datastore_from_layer_index` | `int`                                         | `-1`         | Model layer index to use for datastore queries (-1 = last layer).                                                     |
+| `use_repetition_penalty`     | `bool`                                        | `False`      | Whether to apply repetition penalty during sampling.                                                                  |
+| `repetition_penalty_value`   | `float`                                       | `1.0`        | Penalty factor for repeated tokens (>1.0 discourages repetition).                                                     |
+| `temperature`                | `float`                                       | `1.0`        | Sampling temperature for controlling randomness.                                                                      |
+| `min_length_ratio`           | `float`                                       | `0.1`        | Minimum generation length as ratio of `max_length`.                                                                   |
+| `use_faiss`                  | `bool`                                        | `False`      | Whether to use FAISS for efficient similarity search.                                                                 |
+| `distance_method`            | `str`                                         | `'euc'`      | Distance metric for datastore retrieval ('euc' or 'cos').                                                             |
+| `use_jsd`                    | `bool`                                        | `False`      | Whether to use Jensen-Shannon Divergence for distribution mixing (Ada mode).                                          |
+| `use_plus`                   | `bool`                                        | `False`      | Whether to use CoCoLex+ mode with chunked datastore references.                                                       |
+
+**Returns:** `List[List[int]]` - List of generated token sequences for each input prompt.
