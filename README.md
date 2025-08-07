@@ -1,4 +1,4 @@
-# CoCoLex: Confidence-Guided Copy-Based Decoding for Legal Text Generation
+# CoCoLex: Confidence-guided Copy-based Decoding for Grounded Legal Text Generation
 
 **CoCoLex** is a decoding strategy for improving **faithfulness and factual accuracy** in **legal text generation**. It enhances standard large language models (LLMs) by dynamically combining model-generated outputs with context-based copying, guided by model confidence scores.
 
