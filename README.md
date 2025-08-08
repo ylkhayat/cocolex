@@ -7,7 +7,7 @@
 
 ---
 
-## 🧠 Key Features
+## Key Features
 
 - ✅ Improves **faithfulness** in legal text generation
 - 📚 Leverages **retrieved legal context** via copy-based decoding
@@ -16,13 +16,13 @@
 
 ---
 
-## 📝 Abstract
+## Abstract
 
 LLMs have strong potential for legal NLP but often generate unfaithful or hallucinated text. Retrieval-Augmented Generation (RAG) adds external knowledge but doesn’t ensure it's used effectively. **CoCoLex** solves this by interpolating model predictions with a copy-based distribution over the retrieved context, guided by model confidence. Experiments show that CoCoLex improves groundedness and faithfulness in long-form legal generation.
 
 ---
 
-## 📄 Paper and Citation
+## Paper and Citation
 
 📕 **Published at**: ACL 2025  
 🔗 [PDF](https://aclanthology.org/2025.acl-long.931.pdf) | [Abstract](https://aclanthology.org/2025.acl-long.931/)
@@ -40,7 +40,7 @@ LLMs have strong potential for legal NLP but often generate unfaithful or halluc
 }
 ```
 
-## 🚀 Usage Example
+## Usage Example
 
 ```python
 from cocolex import CoCoLex
