@@ -1,7 +1,7 @@
 from more_itertools import chunked
 from sklearn.neighbors import NearestNeighbors
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from typing import Tuple, Union, List, Optional
+from typing import Tuple, Union, List
 import faiss
 import gc
 import numpy as np
@@ -323,21 +323,21 @@ class CoCoLex:
         return next_token
     
     def generate(self,
-                prompts: List[str], 
+                prompts: List[str],
                 contexts: List[str],
-                references: Optional[Union[List[str], List[List[str]]]] = None, 
+                references: Union[List[str], List[List[str]]],
                 lamba: float = None,
                 max_length: int = 256,
-                entropy_strategy: str = 'exp_norm', 
+                entropy_strategy: str = 'exp_norm',
                 entropy_sigmoid_threshold: float = 0.5,
                 lambda_smoothing_factor: float = 0.3,
-                decoding_strategy: str = 'top_p',
+                decoding_strategy: str = 'greedy',
                 top_p_value: float = 0.9,
                 top_k_value: int = 20,
                 k: int = 10,
                 datastore_from_layer_index: int = -1,
-                use_repetition_penalty: bool = False, 
-                repetition_penalty_value: float = 1.0,
+                use_repetition_penalty: bool = True,
+                repetition_penalty_value: float = 1.5,
                 temperature: float = 1.0,
                 min_length_ratio: float = 0.1,
                 use_faiss: bool = False,
