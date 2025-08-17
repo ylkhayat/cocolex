@@ -44,15 +44,13 @@ def compute_jsd_per_batch(p, q):
         jsd_values.append(jsd)
     return torch.tensor(jsd_values, device=p.device, dtype=p.dtype).unsqueeze(-1)
 
-def calculate_eos_weight(self, entropy, entropy_with_contexts, beta=1.0):
-    entropy_diff = entropy_with_contexts - entropy
-    return torch.tanh(beta * entropy_diff)
-    
-
 class CoCoLex:
     def __init__(self, model_name: str, device: Union[int,str] = 0, compile: bool = True):
         device_map = torch.device(f"cuda:{device}" if torch.cuda.is_available() else "cpu")
-        self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device_map, use_cache=True, attn_implementation="flash_attention_2", torch_dtype=torch.float16)
+        if torch.cuda.is_available():
+            self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device_map, use_cache=True, attn_implementation="flash_attention_2", torch_dtype=torch.float16)
+        else:
+            self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device_map, use_cache=True, torch_dtype=torch.float32)
         if compile:
             self.model = torch.compile(self.model)
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side='left', use_fast=True)
@@ -196,7 +194,6 @@ class CoCoLex:
     def compute_copy_based_probabilities(self, batch_datastores, query, k=10, temperature=1.0, distance_method='euc'):
         batch_size = query.shape[0]
         knn_probs_list = []
-        # handle removing querying for padding tokens
         pad_idx = self.tokenizer.pad_token_id
         
         for i in range(batch_size):
@@ -232,30 +229,6 @@ class CoCoLex:
             knn_probs_list.append(knn_probs)
         knn_probs_list = torch.tensor(np.concatenate(knn_probs_list, axis=0), device=self.device)
         return knn_probs_list
-    
-    def compute_confidence_guided_weight(self,
-                                         original_next_token_probs: torch.Tensor,
-                                         previous_lambda: torch.Tensor,
-                                         entropy_strategy: str = 'exp_norm',
-                                         entropy_sigmoid_threshold: float = 0.5,
-                                         lambda_smoothing_factor: float = 0.3,
-                                         lamba: torch.Tensor = None,
-                                         original_dtype: torch.dtype = torch.float16) -> torch.Tensor:
-        entropy = -torch.sum(original_next_token_probs * torch.log(original_next_token_probs), dim=-1).unsqueeze(-1)
-        if lamba is None:
-            if entropy_strategy == 'exp':
-                lamba = torch.exp(-entropy).to(original_dtype)
-            elif entropy_strategy == 'exp_norm':
-                normalizer = torch.log(torch.tensor(original_next_token_probs.size(-1), dtype=original_next_token_probs.dtype))
-                normalized_entropy = entropy / normalizer
-                lamba = torch.exp(-normalized_entropy).to(original_dtype)
-            elif entropy_strategy == 'sig':
-                lamba = 1 / (1 + torch.exp(entropy - entropy_sigmoid_threshold))
-        lamba = torch.clamp(lamba, min=0.2, max=0.8) # to avoid extreme values
-        lamba = lambda_smoothing_factor * lamba + (1 - lambda_smoothing_factor) * previous_lambda
-        previous_lambda = lamba
-        assert torch.all(lamba >= 0.0) and torch.all(lamba <= 1.0), "Lambda must be between [0, 1]"
-        return lamba, previous_lambda
         
     
     def _top_p_sampling(self, 
@@ -330,7 +303,7 @@ class CoCoLex:
                 max_length: int = 256,
                 entropy_strategy: str = 'exp_norm',
                 entropy_sigmoid_threshold: float = 0.5,
-                lambda_smoothing_factor: float = 0.3,
+                lambda_smoothing_factor: float = 0.5,
                 decoding_strategy: str = 'greedy',
                 top_p_value: float = 0.9,
                 top_k_value: int = 20,
@@ -361,7 +334,6 @@ class CoCoLex:
                                                         layer_index=datastore_from_layer_index,
                                                         k=k,
                                                         distance_method=distance_method)
-            
         tokenized_inputs = self.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True, max_length=self.model.config.max_position_embeddings)
         tokenized_inputs = {key: value.to(self.model.device) for key, value in tokenized_inputs.items()}
         input_ids = tokenized_inputs['input_ids']
@@ -407,10 +379,10 @@ class CoCoLex:
                 model_kwargs_with_contexts["attention_mask"] = torch.cat([model_kwargs_with_contexts["attention_mask"], torch.ones((batch_size, 1), device=self.device)], dim=-1)
                 model_kwargs_with_contexts["cache_position"] = model_kwargs_with_contexts["cache_position"][-1:] + 1
                 model_kwargs_with_contexts["past_key_values"] = outputs_with_contexts.past_key_values
-                
+
                 outputs_hidden_states = outputs_with_contexts.hidden_states
                 final_token_logits = next_token_logits_with_contexts
-                
+
                 if use_jsd:
                     model_inputs = self.model.prepare_inputs_for_generation(input_ids, **model_kwargs)
                     outputs = self.model(**model_inputs,
@@ -426,23 +398,28 @@ class CoCoLex:
 
                 query = outputs_hidden_states[datastore_from_layer_index][:, -1:, :]
                 copy_based_token_probs = self.compute_copy_based_probabilities(batch_datastores, 
-                                                                             query, 
-                                                                             k=k, 
-                                                                             temperature=temperature,
-                                                                             distance_method=distance_method)
+                                                              query, 
+                                                              k=k, 
+                                                              temperature=temperature,
+                                                              distance_method=distance_method)
 
                 original_dtype = final_token_logits.dtype
                 original_next_token_probs = F.softmax(final_token_logits / temperature, dim=-1).float()
-                original_next_token_probs = torch.clamp(original_next_token_probs, min=1e-10)
-                
-                lamba, previous_lambda = self.compute_confidence_guided_weight(original_next_token_probs,
-                                                              previous_lambda,
-                                                              entropy_strategy=entropy_strategy,
-                                                              entropy_sigmoid_threshold=entropy_sigmoid_threshold,
-                                                              lambda_smoothing_factor=lambda_smoothing_factor,
-                                                              lamba=lamba,
-                                                              original_dtype=original_dtype)
-                
+                if lamba is None:
+                    original_next_token_probs = torch.clamp(original_next_token_probs, min=1e-10)
+                    entropy = -torch.sum(original_next_token_probs * torch.log(original_next_token_probs), dim=-1).unsqueeze(-1)
+                    if entropy_strategy == 'exp':
+                        lamba = torch.exp(-entropy).to(original_dtype)
+                    elif entropy_strategy == 'exp_norm':
+                        normalizer = torch.log(torch.tensor(original_next_token_probs.size(-1), dtype=original_next_token_probs.dtype))
+                        normalized_entropy = entropy / normalizer
+                        lamba = torch.exp(-normalized_entropy).to(original_dtype)
+                    elif entropy_strategy == 'sig':
+                        lamba = 1 / (1 + torch.exp(entropy - entropy_sigmoid_threshold))
+                    lamba = torch.clamp(lamba, min=0.2, max=0.8) # to avoid extreme values
+                    lamba = lambda_smoothing_factor * lamba + (1 - lambda_smoothing_factor) * previous_lambda
+                    previous_lambda = lamba
+                    assert torch.all(lamba >= 0.0) and torch.all(lamba <= 1.0), "Lambda must be between [0, 1]"
 
                 next_token_probs = (1 - lamba) * copy_based_token_probs.to(original_dtype) + lamba * original_next_token_probs.to(original_dtype)
                 next_token = self.sample_next_token(probs=next_token_probs, 
@@ -471,5 +448,3 @@ class CoCoLex:
         torch.cuda.empty_cache()
 
         return generated_tokens
-
-
