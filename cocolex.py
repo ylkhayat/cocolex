@@ -45,9 +45,9 @@ def compute_jsd_per_batch(p, q):
     return torch.tensor(jsd_values, device=p.device, dtype=p.dtype).unsqueeze(-1)
 
 class CoCoLex:
-    def __init__(self, model_name: str, device: Union[int,str] = 0, compile: bool = True):
+    def __init__(self, model_name: str, device: Union[int,str] = 0, compile: bool = True, use_flash_attention: bool = torch.cuda.is_available()):
         device_map = torch.device(f"cuda:{device}" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.is_available():
+        if use_flash_attention:
             self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device_map, use_cache=True, attn_implementation="flash_attention_2", torch_dtype=torch.float16)
         else:
             self.model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device_map, use_cache=True, torch_dtype=torch.float32)
