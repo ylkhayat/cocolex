@@ -73,32 +73,36 @@ decoded_output = model.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 print(decoded_output[0])
 ```
 
-## 🧪 Experiment environment (conda) and notebook
+## 🧪 Try the example notebook (no conda required)
 
-Follow these steps to set up a minimal environment for the experiment notebook under `experiment/` and run it.
+Follow these steps to run the example notebook under `example/` without using conda.
 
-1. Create a conda env
+1. Create and activate a virtual environment (recommended)
 
 ```bash
-conda create -n cocolex-exp python=3.10 -y
-conda activate cocolex-exp
+python3 -m venv .venv
+source .venv/bin/activate
 ```
 
-2. Install requirements for the experiment
+2. Install dependencies
+
+This example no longer includes a `requirements.txt`. If running locally, either run the package-install cells inside `example/example.ipynb` or install the packages listed at the top of that notebook. A minimal set you may need to install manually is:
 
 ```bash
 python -m pip install --upgrade pip
-pip install -r experiment/requirements.txt
+python -m pip install jupyterlab ipykernel
 ```
 
-4. Run the notebook
+Or simply open the notebook in Google Colab (https://colab.research.google.com/) which provides most common packages and run the cells there.
 
-- Open [experiment/cocolex.ipynb](experiment/cocolex.ipynb) in VS Code or Jupyter, and select the `Python (cocolex-exp)` kernel.
-- Execute the cells to reproduce the data loading and prompt construction pipeline.
+3. Run the notebook
+
+- Open [example/example.ipynb](example/example.ipynb) in VS Code or Jupyter and select the Python interpreter from the `.venv` you created (or any system Python you prefer).
+- Alternatively, open or upload the notebook in Google Colab via https://colab.research.google.com/ and run the cells there.
 
 Notes:
 
-- The experiment uses public Hugging Face datasets (ylkhayat/\*-generation-workshop). Access requires internet.
+- The example uses public Hugging Face datasets (ylkhayat/\*-generation-workshop). Internet access is required.
 
 ### CoLex (copy-only)
 
