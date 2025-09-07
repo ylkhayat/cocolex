@@ -2,9 +2,6 @@
 
 **CoCoLex** is a decoding strategy for improving **faithfulness and factual accuracy** in **legal text generation**. It enhances standard large language models (LLMs) by dynamically combining model-generated outputs with context-based copying, guided by model confidence scores.
 
-📌 Official implementation of our ACL 2025 paper:  
-[**CoCoLex: Confidence-guided Copy-based Decoding for Grounded Legal Text Generation**](https://arxiv.org/pdf/2508.05534)
-
 ---
 
 ## Key Features
@@ -13,15 +10,7 @@
 - 📚 Leverages **retrieved legal context** via copy-based decoding
 - 🎯 Uses **confidence-based interpolation** of generation and copy distributions
 - 🧪 Benchmarked on **five legal NLP datasets**
-  - Check out all datasets hosted at https://huggingface.co/collections/ylkhayat/cocolex-generation-workshop-675b01abab4daf21781a67e4
-
----
-
-## Abstract
-
-LLMs have strong potential for legal NLP but often generate unfaithful or hallucinated text. Retrieval-Augmented Generation (RAG) adds external knowledge but doesn’t ensure it's used effectively. **CoCoLex** solves this by interpolating model predictions with a copy-based distribution over the retrieved context, guided by model confidence. Experiments show that CoCoLex improves groundedness and faithfulness in long-form legal generation.
-
----
+  - All datasets are hosted [here](https://huggingface.co/collections/ylkhayat/cocolex-generation-workshop-675b01abab4daf21781a67e4)
 
 ## Paper and Citation
 
@@ -29,16 +18,16 @@ LLMs have strong potential for legal NLP but often generate unfaithful or halluc
 🔗 [PDF](https://aclanthology.org/2025.acl-long.931.pdf) | [Abstract](https://aclanthology.org/2025.acl-long.931/)
 
 ```bibtex
-@inproceedings{t-y-s-s-etal-2025-cocolex,
-  title     = "{C}o{C}o{L}ex: Confidence-guided Copy-based Decoding for Grounded Legal Text Generation",
-  author    = "T.y.s.s, Santosh and Elkhayat, Youssef Tarek and Ichim, Oana and Shetty, Pranav and Wang, Dongsheng and Ma, Zhiqiang and Nourbakhsh, Armineh and Liu, Xiaomo",
-  booktitle = "Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)",
-  year      = "2025",
-  address   = "Vienna, Austria",
-  publisher = "Association for Computational Linguistics",
-  pages     = "19002--19018",
-  url       = "https://aclanthology.org/2025.acl-long.931/",
-}
+@inproceedings{T_y_s_s_2025,
+   title={CoCoLex: Confidence-guided Copy-based Decoding for Grounded Legal Text Generation},
+   url={http://dx.doi.org/10.18653/v1/2025.acl-long.931},
+   DOI={10.18653/v1/2025.acl-long.931},
+   booktitle={Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+   publisher={Association for Computational Linguistics},
+   author={T.Y.S.S, Santosh and Elkhayat, Youssef Tarek and Ichim, Oana and Shetty, Pranav and Wang, Dongsheng and Ma, Zhiqiang and Nourbakhsh, Armineh and Liu, Xiaomo},
+   year={2025},
+   pages={19002–19018} }
+
 ```
 
 ## Usage Example
@@ -73,36 +62,13 @@ decoded_output = model.tokenizer.batch_decode(outputs, skip_special_tokens=True)
 print(decoded_output[0])
 ```
 
-## 🧪 Try the example notebook (no conda required)
+## 🧪 Try the example notebook
 
-Follow these steps to run the example notebook under `example/` without using conda.
+Here's an example notebook to get you started with CoCoLex, simply open [example/example.ipynb](example/example.ipynb) in VS Code or Jupyter, or open it directly on [Google Colab](https://colab.research.google.com/github/ylkhayat/CoCoLex/blob/main/example/example.ipynb).
 
-1. Create and activate a virtual environment (recommended)
+## Different Modes
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-2. Install dependencies
-
-This example no longer includes a `requirements.txt`. If running locally, either run the package-install cells inside `example/example.ipynb` or install the packages listed at the top of that notebook. A minimal set you may need to install manually is:
-
-```bash
-python -m pip install --upgrade pip
-python -m pip install jupyterlab ipykernel
-```
-
-Or simply open the notebook in Google Colab (https://colab.research.google.com/) which provides most common packages and run the cells there.
-
-3. Run the notebook
-
-- Open [example/example.ipynb](example/example.ipynb) in VS Code or Jupyter and select the Python interpreter from the `.venv` you created (or any system Python you prefer).
-- Alternatively, open or upload the notebook in Google Colab via https://colab.research.google.com/ and run the cells there.
-
-Notes:
-
-- The example uses public Hugging Face datasets (ylkhayat/\*-generation-workshop). Internet access is required.
+The `generate` function supports different modes of operation based on the parameters provided. Below are examples of how to use each mode:
 
 ### CoLex (copy-only)
 
